@@ -1,63 +1,50 @@
+import streamlit as st
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, classification_report
-import joblib
-import os
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
 
-# Load dataset
-df = pd.read_csv("semarang_resto_dataset.csv")
+st.set_page_config(page_title="Halaman 3: Simulasi Analisis", layout="wide")
+st.title("📈 Halaman 3: Simulasi Evaluasi Model Rating Tinggi")
 
-# Buat kolom target: 1 jika rating >= 4.5, else 0
-df["high_rating"] = (df["resto_rating"] >= 4.5).astype(int)
+st.info("🧪 Ini adalah simulasi hasil analisis prediksi apakah sebuah restoran mendapat rating tinggi (≥ 4.5)")
 
-# Hapus kolom yang tidak relevan
-drop_cols = ["resto_id", "resto_name", "resto_rating", "resto_address"]
-df.drop(columns=drop_cols, inplace=True)
+# ===== Simulasi Prediksi =====
+np.random.seed(42)  # agar hasil konsisten
+y_true = np.random.choice([0, 1], size=300, p=[0.75, 0.25])  # 0 = <4.5, 1 = ≥4.5
+noise = np.random.binomial(1, 0.1, size=300)  # 10% error
+y_pred = np.abs(y_true - noise)
 
-# Cek dan isi missing values
-for col in df.columns:
-    if df[col].isnull().sum() > 0:
-        if df[col].dtype == 'object':
-            df[col].fillna(df[col].mode()[0], inplace=True)
-        else:
-            df[col].fillna(df[col].median(), inplace=True)
+# ===== Classification Report =====
+report = classification_report(y_true, y_pred, output_dict=True)
+report_df = pd.DataFrame(report).transpose()
 
-# Encode kolom kategorikal
-encoders = {}
-categorical_cols = df.select_dtypes(include="object").columns
-for col in categorical_cols:
-    le = LabelEncoder()
-    df[col] = le.fit_transform(df[col])
-    encoders[col] = le  # simpan encoder untuk digunakan di Streamlit
+st.subheader("📊 Simulasi Classification Report")
+st.dataframe(report_df.style.format(precision=2))
 
-# Split data
-X = df.drop(columns=["high_rating"])
-y = df["high_rating"]
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+# ===== Confusion Matrix =====
+st.subheader("🧮 Confusion Matrix")
+cm = confusion_matrix(y_true, y_pred)
+labels = ["Rating < 4.5", "Rating ≥ 4.5"]
+fig, ax = plt.subplots()
+sns.heatmap(cm, annot=True, fmt="d", cmap="YlGnBu", xticklabels=labels, yticklabels=labels, ax=ax)
+ax.set_xlabel("Prediksi")
+ax.set_ylabel("Aktual")
+st.pyplot(fig)
 
-# Train model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+# ===== Simulasi Feature Importance =====
+st.subheader("📌 Simulasi Fitur yang Mempengaruhi Rating Tinggi")
+feature_importance = pd.Series({
+    "Jam Operasional": 0.30,
+    "Tersedia Wifi": 0.25,
+    "Ada Toilet": 0.18,
+    "Hanya Tunai": 0.12,
+    "Jenis Restoran": 0.15
+}).sort_values()
 
-# Evaluasi
-y_pred = model.predict(X_test)
-print("🎯 Accuracy:", accuracy_score(y_test, y_pred))
-print("📊 Classification Report:\n", classification_report(y_test, y_pred))
-
-# Simpan model
-joblib.dump(model, "rating_classifier.pkl")
-
-# Simpan encoder
-os.makedirs("encoders", exist_ok=True)
-for col, encoder in encoders.items():
-    joblib.dump(encoder, f"encoders/{col}_encoder.pkl")
-
-# Simpan data uji
-X_test.to_csv("X_test_rating.csv", index=False)
-y_test.to_csv("y_test_rating.csv", index=False)
-
-print("✅ Model, encoder, dan data uji berhasil disimpan.")
+fig2, ax2 = plt.subplots()
+feature_importance.plot(kind="barh", ax=ax2, color='darkorange')
+ax2.set_xlabel("Tingkat Pengaruh")
+ax2.set_title("Simulasi Feature Importance")
+st.pyplot(fig2)
